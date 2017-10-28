@@ -1,0 +1,42 @@
+.stacked-panels{
+    display: flex;
+    flex-direction: row;
+    flex-flow: row;
+}
+
+.myInventories{
+    flex: 3;
+    margin: 6px;
+}
+
+.disable{
+    pointer-events: none;
+}
+
+.all_inventories{
+    flex: 1;
+    margin: 6px;
+}
+
+.pending_approvals{
+    flex: 2;
+    margin: 6px;
+}
+
+.rightalign{
+    float: right;
+}
+
+.bottom30{
+    margin-bottom: 30px;
+}
+
+.overflow{
+    overflow: visible;
+    width: auto;
+    height: auto;
+}
+
+.red-label{
+    color: red;
+}

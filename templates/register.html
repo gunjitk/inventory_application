@@ -1,0 +1,59 @@
+{% include 'base.html' %}
+{% csrf_token %}
+<html>
+    <head>
+        <title>Register New User</title>
+    </head>
+    <body class="well well-lg">
+        <form class="form-horizontal" id="form2">
+            <div class="form-group">
+                <label for="uname">Username:</label>
+                <input type="text" class="form-control" id="uname" maxlength="10" placeholder="Must be unique">
+            </div>
+            <div class="form-group">
+                <label for="pass">Password:</label>
+                <input type="password" class="form-control" id="pass" maxlength="30" placeholder="Password">
+            </div>
+            <div class="form-group">
+                <label for="cnf-pass">Email:</label>
+                <input type="text" class="form-control" id="email" maxlength="30" placeholder="Password">
+            </div>
+            <div class="form-group">
+                <label for="role"> Role:</label>
+                <select id="role_select" id="role">
+                    <option value="DEPT_MGR"> Department Manager</option>
+                    <option value="STORE_MGR"> Store Manager </option>
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit" >Continue To Register</button>
+        </form>
+        <label id="response_label" hidden>Registration Successful!!!</label>
+    </body>
+</html>
+
+{% block js %}
+    <script type="text/javascript">
+        $('#form2').on('submit', function(e){
+            e.preventDefault();
+            $.ajax({
+                url: '/manager/register_user/',
+                type: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                data: JSON.stringify({
+                    'user_name': $('#uname').val(),
+                    'password': $('#pass').val(),
+                    'user_role': $('#role_select').val(),
+                    'user_email': $('#email').val()
+                }),
+                success: function(response){
+                    if(response.success){
+                        $('#response_label').removeAttr('hidden');
+                        setInterval(function () {
+                            window.location.href = "/login/";
+                        }, 3000)
+                    }
+                }
+            })
+        });
+    </script>
+{% endblock %}

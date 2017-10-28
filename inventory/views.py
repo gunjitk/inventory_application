@@ -4,10 +4,12 @@ from __future__ import unicode_literals
 import json
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import render, render_to_response, redirect
 
 # Create your views here.
+from django.views.generic import TemplateView
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 from rest_framework.views import APIView
@@ -33,10 +35,9 @@ class InventoryView(APIView):
 
             if show_all_inventories == "true":
 
-                users_inventories = Inventory.objects.values()
+                users_inventories = Inventory.objects.filter(~Q(store_manager = inventory_user) & ~Q(dept_managers_subscribed=inventory_user))
                 for inventory in users_inventories:
-                    inventory_dict = {}
-                    inventory_dict[inventory['inventory_name']] = inventory
+                    inventory_dict = {'name': inventory.inventory_name, 'store_manager': inventory.store_manager.user.username}
                     list_of_inventories.append(inventory_dict)
 
             elif inventory_user.is_store_mgr or user_permitted:
@@ -45,29 +46,44 @@ class InventoryView(APIView):
                 for inventory in users_inventories:
                     inventory_dict = {}
                     inventory_records = InventoryRecords.get_inventory_records_data(inventory=inventory)
-                    inventory_dict[inventory.inventory_name] = inventory_records
+                    inventory_dict['name'] = inventory.inventory_name
+                    inventory_dict['records'] = inventory_records
+                    inventory_dict['store_manager'] = inventory.store_manager.user.username
                     list_of_inventories.append(inventory_dict)
 
         except Exception as e:
             status = HTTP_400_BAD_REQUEST
             list_of_inventories.append({'error':"Can't fetch all records"})
 
-        return HttpResponse(json.dumps(list_of_inventories), status=status, content_type='application/json')
+        return HttpResponse(json.dumps({'inventories_list':list_of_inventories}), status=status, content_type='application/json')
 
     def post(self, request):
 
         user = request.user
         request_data = json.loads(request.body)
         subscribe_to = request_data.get('subscribe_to')
+        inventory_name = request_data.get('inventory_name')
+        # store_manager = request_data.get('store_manager')
+
         inventory_user = InventoryUser.user_exists(username=user.username)
         status = HTTP_200_OK
         response = []
 
         try:
-            inventory = Inventory.objects.filter(inventory_name=subscribe_to).first()
-            if inventory:
-                inventory.dept_managers_subscribed.add(inventory_user)
+            if subscribe_to:
+                inventory = Inventory.objects.filter(inventory_name=subscribe_to).first()
+                if (not inventory_user.is_store_manager_for_inventory(subscribe_to) and not inventory_user in inventory.dept_managers_subscribed.all()):
+                    inventory.dept_managers_subscribed.add(inventory_user)
+                    response.append({'success': True})
+            else:
+                if not inventory_user.is_store_mgr:
+                    inventory_user.is_store_mgr = True
+                    inventory_user.save()
+
+                inventory_new = Inventory(inventory_name=inventory_name, store_manager=inventory_user)
+                inventory_new.save()
                 response.append({'success': True})
+
 
         except Exception as e:
             status = HTTP_400_BAD_REQUEST
@@ -99,7 +115,7 @@ class InventoryPermissionView(APIView):
             status = HTTP_400_BAD_REQUEST
             permissions.append({'error': 'Cant fetch all permissions'})
 
-        return HttpResponse(json.dumps(permissions), status=status, content_type='application/json')
+        return HttpResponse(json.dumps({'permissions': permissions}), status=status, content_type='application/json')
 
     def post(self, request, **kwargs):
 
@@ -107,7 +123,7 @@ class InventoryPermissionView(APIView):
         user_data = json.loads(request.body)
         status = HTTP_200_OK
         permission_name = user_data.get('permission_name')
-        inventory_name = user_data.get('inventory_name')
+        inventory_name = str(permission_name).split('_')[-1]
         target_user = user_data.get('to_username')
 
         response = []
@@ -122,7 +138,9 @@ class InventoryPermissionView(APIView):
                     content_type = ContentType.objects.get_for_model(InventoryRecords)
                     permission_object = Permission.objects.get_or_create(codename=permission_name, name=permission_name, content_type=content_type)[0]
                     target_user.user.user_permissions.add(permission_object)
-                    InventoryPermissions.objects.filter(permission_codename=permission_name, target_user=target_user.user.username).delete()
+                    inv_permission = InventoryPermissions.objects.filter(permission_codename=permission_name, target_user=target_user.user.username).first()
+                    inv_permission.status = 'Approved'
+                    inv_permission.save()
                     response.append({'success': 'Given permission to user'})
                 else:
                     response.append({'success': 'user already has permission'})
@@ -241,6 +259,19 @@ target_user=user.username, store_manager=inventory_object.store_manager)
 
         return HttpResponse(json.dumps(response), status=status, content_type='application/json')
 
+
+class MainPageView(TemplateView):
+    template_name = 'mainpage.html'
+
+    def get(self, request, *args, **kwargs):
+        token = request.GET.get('g')
+        status = HTTP_200_OK
+
+        if not token:
+            status = HTTP_400_BAD_REQUEST
+            return redirect('/login/')
+
+        return render_to_response(self.template_name, {'token': token})
 
 
 

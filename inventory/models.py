@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 
 from inventory_manager.models import InventoryUser
+from django.db.models import Q
 
 
 class Inventory(models.Model):
@@ -15,15 +16,12 @@ class Inventory(models.Model):
     inventory_name = models.CharField(max_length=200, unique=True)
     store_manager = models.ForeignKey(InventoryUser, related_name="store_manager_id",
                                       limit_choices_to={'is_store_mgr': True})
-    total_items = models.IntegerField(default=0)
+    total_items = models.IntegerField(default=0, null=True)
     dept_managers_subscribed = models.ManyToManyField(InventoryUser, limit_choices_to={'is_dept_mgr':True}, blank=True)
 
     @classmethod
     def get_all_inventories(cls, user):
-        if user.is_store_mgr:
-            return cls.objects.filter(store_manager = user).all()
-        else:
-            return cls.objects.filter(dept_managers_subscribed=user).all()
+            return cls.objects.filter(Q(store_manager = user) | Q(dept_managers_subscribed=user)).distinct().all()
 
     @classmethod
     def is_user_permitted(cls, user):
@@ -83,4 +81,5 @@ class InventoryPermissions(models.Model):
     inventory_name = models.CharField(max_length=200, null=True)
     permission_codename = models.CharField(max_length=200, null=True)
     target_user = models.CharField(max_length=200, null=True)
+    status = models.CharField(default='Pending', max_length=20)
 

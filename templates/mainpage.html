@@ -1,0 +1,331 @@
+{% include 'base.html' %}
+
+<html>
+    <head>
+        <title>Main page</title>
+    </head>
+    <body class="well well-lg">
+
+        <div class="stacked-panels">
+
+
+            <div class="all_inventories panel">
+                <div class="panel-heading">
+                    <h3 align="center"> Other Inventories </h3>
+                </div>
+                <div class="panel-body">
+                    <ul id="all_inventories" class="list-group">
+
+                    </ul>
+                </div>
+            </div>
+
+            <div class="myInventories panel">
+                <div class="panel-heading">
+                    <h3 align="center"> My Inventories </h3>
+                </div>
+                <div class="panel-body">
+                    <ul id="my_inventories" class="list-group">
+
+                    </ul>
+                </div>
+                <div class="panel-footer">
+                    <button type="button" class="btn btn-danger rightalign create_inventory" >
+                        Create New Inventory
+                    </button>
+                </div>
+            </div>
+
+            <div class="pending_approvals panel">
+                <div class="panel-heading">
+                    <h3 align="center"> Approvals Pending </h3>
+                </div>
+                <div class="panel-body">
+                    <ul id="pending_approvals" class="list-group">
+
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="modal fade overflow" id="myModal" role="dialog">
+            <div class="modal-dialog modal-lg">
+
+              <!-- Modal content-->
+              <div class="modal-content">
+                  <div class="modal-header">
+                      <h3> Contents </h3>
+                    </div>
+                    <div class="modal-body">
+                        <table id="inventory_contents" class="table table-striped table-bordered" cellspacing="0" width="100%">
+                            <thead>
+                                <tr>
+                                    <th>Product Id</th>
+                                    <th>Product Name</th>
+                                    <th>Vendor</th>
+                                    <th>MRP</th>
+                                    <th>Batch Num</th>
+                                    <th>Batch Date</th>
+                                    <th>Quantity</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+
+                  </div>
+              </div>
+            </div>
+        </div>
+
+        <div class="modal fade overflow" id="create_inventory_form" role="dialog">
+            <div class="modal-dialog">
+
+              <!-- Modal content-->
+              <div class="modal-content">
+                  <div class="modal-header">
+                    <h3 align="center">Create New Inventory</h3>
+                  </div>
+                  <div class="modal-body form-horizontal">
+                        <label> Inventory Name </label>
+                        <input type="text" id="new_inventory" class="form-control" value=""/>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-info create_inv">Create</button>
+                      <label class="red-label" hidden>Error in Creating Inventory </label>
+                  </div>
+              </div>
+            </div>
+        </div>
+
+    </body>
+</html>
+
+{% block js %}
+    <script type="text/javascript">
+        $(document).ready(function(){
+            var list_of_inventories = [],
+                list_of_permissions = [];
+            var token = "{{ token }}";
+            if(token) {
+                get_subscribed_inventories();
+                get_all_inventories();
+                get_all_pending_approvals();
+
+            } else{
+                window.location.href = "/login/";
+            }
+
+            $('.create_inventory').on('click', function(){
+                $('#create_inventory_form').modal();
+            });
+
+            $('.create_inv').on('click', function(){
+                var inventory_name = $('#new_inventory').val();
+
+                $.ajax({
+                    url: '/inventory/add_inventory/',
+                    type: 'POST',
+                    processData: false,
+                    headers: {'Authorization': 'Token '+ token},
+                    data: JSON.stringify({
+                        'inventory_name':inventory_name
+                    })
+                }).done(function(response){
+                    if(response[0].success == true){
+                        $('#create_inventory_form').modal('toggle');
+                        $('.red-label').attr('hidden', true);
+                        $('#my_inventories').empty();
+                        get_subscribed_inventories();
+                    } else{
+                        $('.red-label').removeAttr('hidden');
+                    }
+                })
+            });
+
+            $(document).on('click','.show_inventory_data', function(e){
+                var target = e.target;
+                var inventory_name = $(target).prev().text(),
+                    inventory_id = $(target).prev().attr('id');
+
+                if ($.fn.DataTable.isDataTable("#inventory_contents")) {
+                  $('#inventory_contents').DataTable().clear().destroy();
+                }
+
+
+                var editor = new $.fn.dataTable.Editor( {
+                    data: list_of_inventories[inventory_id].records,
+                    table: "#inventory_contents",
+                    fields: [ {
+                            label: "Product Id:",
+                            name: "product_id"
+                        }, {
+                            label: "Product Name",
+                            name: "product_name"
+                        }, {
+                            label: "Vendor",
+                            name: "Vendor"
+                        }, {
+                            label: "MRP",
+                            name: "MRP"
+                        }, {
+                            label: "Batch Num",
+                            name: "batch_num"
+                        }, {
+                            label: "Batch Date",
+                            name: "batch date"
+                        }, {
+                            label: "Quantity",
+                            name: "Quantity"
+                        }, {
+                            label: "Status",
+                            name: "status"
+                        }
+                    ]
+                });
+                $('#inventory_contents').DataTable( {
+                    "paging":   false,
+                    "ordering": false,
+                    "info":     false,
+                    data: list_of_inventories[inventory_id].records,
+                    columns: [
+                        { data: "product_id" },
+                        { data: "product_name" },
+                        { data: "Vendor" },
+                        { data: "MRP" },
+                        { data: "batch_num" },
+                        { data: "batch_date" },
+                        { data: "Quantity" },
+                        { data: "status" },
+                    ],
+                    select: true,
+                    buttons: [
+                        { extend: "create", editor: editor },
+                        { extend: "edit",   editor: editor },
+                        { extend: "remove", editor: editor }
+                    ]
+                });
+                $('#myModal').modal();
+
+            });
+
+            $(document).on('click', '.subscribe', function(e){
+                var target = e.target,
+                    inventory_name = $(target).prev().text();
+
+                var subscribed = subscribe_to_inventory(inventory_name);
+                subscribed.done(function(response){
+                    if (response[0].success == true) {
+                        $(target).parent().remove();
+                        $('#my_inventories').empty();
+                        get_subscribed_inventories();
+                    } else {
+
+                    }
+                });
+            });
+
+
+            $(document).on('click', '.approve', function(e){
+                var target = e.target,
+                    permission_name = $(target).prev().text(),
+                    requester = $(target).attr('title').split(':')[1].trim();
+                if($(target).text() == 'Pending') {
+                    debugger;
+                    $.ajax({
+                        url: '/inventory/approve_permission/',
+                        type: 'POST',
+                        headers: {'Authorization': 'Token ' + token},
+                        processData: false,
+                        data: JSON.stringify({
+                            'permission_name': permission_name,
+                            'to_username': requester
+                        })
+                    }).done(function (response) {
+                        if (response[0].success == "Given permission to user") {
+                            $(target).text('Approved');
+                            $(target).addClass('disable');
+                        }
+                    })
+                }
+
+            });
+
+            function get_subscribed_inventories() {
+                $.ajax({
+                    url: '/inventory/list/',
+                    type: 'GET',
+                    headers: {'Authorization': 'Token ' + token},
+                    success: function (response, xhr) {
+                        if(xhr == "success") {
+                            list_of_inventories = response.inventories_list;
+                            for (i in list_of_inventories){
+                                var $li = $("<li>", {id:"item"+i, class: "list-group-item bottom30"});
+                                $li.html("<i id="+i+">" + list_of_inventories[i].name + "</i>"  + "<a href='#' class='rightalign show_inventory_data'>Show Data</a>" );
+                                $('#my_inventories').append($li);
+                            }
+                        }
+                    },
+                    error: function(response, xhr){
+                        window.location.href = "/login/"
+                    }
+                });
+            };
+
+            function get_all_inventories(){
+                 $.ajax({
+                    url: '/inventory/list/?show_all=true',
+                    type: 'GET',
+                    headers: {'Authorization': 'Token '+ token},
+                    success: function(response, xhr){
+                       if(xhr == "success") {
+                            list_of_inventories = response.inventories_list;
+                            for (i in list_of_inventories){
+                                var $li = $("<li>", {id:"item", class: "list-group-item"});
+                                $li.html("<i id="+i+">" + list_of_inventories[i].name + "</i>"  + "<a href='#' class='rightalign subscribe'>Subscribe</a>" );
+                                $('#all_inventories').append($li);
+                            }
+                        }
+                    }
+                })
+            }
+
+            function subscribe_to_inventory(inventory_name) {
+
+                var subscribe = $.ajax({
+                    url: '/inventory/subscribe/',
+                    type: 'POST',
+                    processData: false,
+                    headers: {'Authorization': 'Token ' + token},
+                    async: false,
+                    data: JSON.stringify({'subscribe_to': inventory_name}),
+
+                });
+                return subscribe;
+            }
+
+            function get_all_pending_approvals(){
+
+                $.ajax({
+                    url: '/inventory/show_all_pending_approvals/',
+                    type: 'GET',
+                    headers: {'Authorization': 'Token '+ token},
+                    success: function(response, xhr){
+                       if(xhr == "success") {
+                            list_of_permissions = response.permissions;
+                            for (i in list_of_permissions){
+                                var $li = $("<li>", {id:"item", class: "list-group-item"});
+                                $li.html("<i id="+i+">" + list_of_permissions[i].permission_codename + "</i>"  + "<a href='#' data-toggle='tooltip' title='Requester: "+list_of_permissions[i].target_user+" ' class='rightalign approve'>"+list_of_permissions[i].status+"</a>" );
+                                $('#pending_approvals').append($li);
+                            }
+                        }
+                    }
+                })
+
+            }
+        });
+    </script>
+{% endblock %}

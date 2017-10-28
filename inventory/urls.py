@@ -9,5 +9,7 @@ urlpatterns = [
     url(r'^add_item_to_inventory/', views.InventoryUpdateView.as_view()),
     url(r'^approve_permission/', views.InventoryPermissionView.as_view()),
     url(r'^delete_record/', views.InventoryUpdateView.as_view()),
-    url(r'^subscribe/', views.InventoryView.as_view())
+    url(r'^subscribe/', views.InventoryView.as_view()),
+    url(r'^add_inventory/', views.InventoryView.as_view()),
+    url(r'^mainpage/', views.MainPageView.as_view())
 ]

@@ -1,0 +1,48 @@
+{% include 'base.html' %}
+
+<html>
+    <head>
+        <title>Inventory Application</title>
+    </head>
+    <body class="well well-lg">
+        <div>
+            <form class="form-row" id="form1" >
+
+                <div class="form-group">
+                    Username: <input id="uname" type="text" value="">
+                </div>
+                <div class="form-group">
+                    Password: <input id="pass" type="text" value="">
+                </div>
+                <button type="submit">Login</button>
+            </form>
+            <a href="{% url 'register_user' %}">Register New User</a>
+        </div>
+    </body>
+</html>
+
+{% block js %}
+    <script type="text/javascript">
+        $(document).ready(function(){
+                $('#form1').on("submit", function(e){
+                    e.preventDefault();
+                    $.ajax({
+                        url: '/manager/login/',
+                        type: 'POST',
+                        processData: false,
+                        dataType:'json',
+                        contentType:'application/json',
+                        data: JSON.stringify({
+                            'username': $('#uname').val(),
+                            'formIsValid': true,
+                            'password': $('#pass').val()
+                        }),
+                        success: function(response){
+                            var token = response.token;
+                            window.location.href = "/inventory/mainpage?g="+token;
+                        }
+                    });
+            });
+        });
+    </script>
+{% endblock %}
